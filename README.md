@@ -17,6 +17,13 @@
 ``` ./bash_code.sh {folder_name} ``` \
 This will create a folder of desired name which will store the simulation results of given 5 traces along with their ipc values in `results.txt`
 
+### Presentation
+ Please refer this [presentation](https://docs.google.com/presentation/d/1-CdZl602SHgl6vaIhnxknX5CPS917v1rjopyMUz4sKc/edit?usp=sharing) for detailed understanding
+
+### References
+- [IPCP paper](https://www.cse.iitk.ac.in/users/biswap/IPCP_ISCA20.pdf)
+- [IPCP github repo](https://github.com/car3s/IPCP_ISCA2020)
+
 ### Contributions
 
 | Name                          	| Contribution 	|
