@@ -23,6 +23,7 @@ This will create a folder of desired name which will store the simulation result
 ### References
 - [IPCP paper](https://www.cse.iitk.ac.in/users/biswap/IPCP_ISCA20.pdf)
 - [IPCP github repo](https://github.com/car3s/IPCP_ISCA2020)
+- [IPCP 1.0 presentation](https://dpc3.compas.cs.stonybrook.edu/slides/bouquet.pdf)
 
 ### Contributions
 
