@@ -1,0 +1,259 @@
+/*****************************************************
+For the Third Data Prefetching Championship - DPC3
+
+Paper ID: #4
+Instruction Pointer Classifying Prefetcher - IPCP
+
+Authors: 
+Samuel Pakalapati - pakalapatisamuel@gmail.com
+Biswabandan Panda - biswap@cse.iitk.ac.in
+******************************************************/
+
+#include "cache.h"
+
+#define NUM_IP_TABLE_L2_ENTRIES 1024
+#define NUM_IP_INDEX_BITS 10
+#define NUM_IP_TAG_BITS 6
+#define S_TYPE 1    // global stream (GS)
+#define CS_TYPE 2   // constant stride (CS)
+#define CPLX_TYPE 3 // complex stride (CPLX)
+#define NL_TYPE 4   // next line (NL)
+
+// #define SIG_DEBUG_PRINT_L2
+#ifdef SIG_DEBUG_PRINT_L2
+#define SIG_DP(x) x
+#else
+#define SIG_DP(x)
+#endif
+
+class IP_TRACKER
+{
+public:
+    uint64_t ip_tag;
+    uint16_t ip_valid;
+    uint32_t pref_type; // prefetch class type
+    int stride;         // last stride sent by metadata
+    uint prefetch_degree;
+    uint16_t signature;
+
+    IP_TRACKER()
+    {
+        ip_tag = 0;
+        ip_valid = 0;
+        pref_type = 0;
+        stride = 0;
+        signature = 0;
+        if (NUM_CPUS == 1) {
+            prefetch_degree = 3;
+        }
+        else prefetch_degree = 2;
+    };
+};
+
+class DELTA_PRED_TABLE 
+{
+    public:
+        int delta;
+        int conf;
+
+        DELTA_PRED_TABLE()
+        {
+            delta = 0;
+            conf = 0;
+        };
+};
+DELTA_PRED_TABLE DPT_l2c[NUM_CPUS][4096];   ///////////// DPT_l1 defined for L2  ------------- PP
+uint32_t spec_nl_l2[NUM_CPUS] = {0};
+IP_TRACKER trackers_l2c[NUM_CPUS][NUM_IP_TABLE_L2_ENTRIES];
+
+
+int update_conf_l2(int stride, int pred_stride, int conf)
+{
+    if (stride == pred_stride)
+    { // use 2-bit saturating counter for confidence
+        conf++;
+        if (conf > 2)
+            conf = 2;
+    }
+    else
+    {
+        conf--;
+        if (conf < -2)
+            conf = -2;    
+    }
+
+    return conf;
+}
+
+
+int decode_stride_l2(uint32_t metadata)
+{
+    int stride = 0;
+    if (metadata & 0b1000000)
+        stride = -1 * (metadata & 0b111111);
+    else
+        stride = metadata & 0b111111;
+
+    return stride;
+}
+
+
+uint16_t update_sig_l2(uint16_t old_sig, int delta)
+{
+    uint16_t new_sig = 0;
+    int sig_delta = 0;
+
+    // 7-bit sign magnitude form, since we need to track deltas from +63 to -63
+    sig_delta = (delta < 0) ? (((-1) * delta) + (1 << 6)) : delta;
+    new_sig = ((old_sig << 1) + sig_delta) & 0xFFF; // 12-bit signature /////////+ is working better for given 5 traces --- PP
+
+    return new_sig;
+}
+
+void CACHE::l2c_prefetcher_initialize()
+{
+
+}
+
+uint32_t CACHE::l2c_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in)
+{
+    //////////////////////////// prefetch degreee per IP is used ----------------------------PP
+    uint64_t cl_addr = addr >> LOG2_BLOCK_SIZE;
+    // int prefetch_degree = 0;
+    int64_t stride = decode_stride_l2(metadata_in);
+    uint32_t pref_type = metadata_in & 0xF00;
+    uint16_t ip_tag = (ip >> NUM_IP_INDEX_BITS) & ((1 << NUM_IP_TAG_BITS) - 1);
+
+    uint16_t signature = 0, last_signature = 0; ///////// signature and last_signature for cplx class ------------PP
+
+
+    // calculate the index bit
+    int index = ip & ((1 << NUM_IP_INDEX_BITS) - 1);
+    if (trackers_l2c[cpu][index].ip_tag != ip_tag)
+    { // new/conflict IP
+        if (trackers_l2c[cpu][index].ip_valid == 0)
+        { // if valid bit is zero, update with latest IP info
+            trackers_l2c[cpu][index].ip_tag = ip_tag;
+            trackers_l2c[cpu][index].pref_type = pref_type;
+            trackers_l2c[cpu][index].stride = stride;
+
+            trackers_l2c[cpu][index].signature = 0;
+
+            trackers_l2c[cpu][index].ip_valid = 1;
+        }
+        else
+        {
+            trackers_l2c[cpu][index].ip_valid = 0; // otherwise, reset valid bit and leave the previous IP as it is
+        }
+
+        // issue a next line prefetch upon encountering new IP
+        uint64_t pf_address = ((addr >> LOG2_BLOCK_SIZE) + 1) << LOG2_BLOCK_SIZE;
+        prefetch_line(ip, addr, pf_address, FILL_L2, metadata_in);
+        SIG_DP(cout << "1, ");
+        return metadata_in;
+    }
+    else
+    { // if same IP encountered, set valid bit
+        trackers_l2c[cpu][index].ip_valid = 1;
+    }
+
+    // update the IP table upon receiving metadata from prefetch
+    if (type == PREFETCH)
+    {
+        trackers_l2c[cpu][index].pref_type = pref_type;
+        trackers_l2c[cpu][index].stride = stride;
+        spec_nl_l2[cpu] = metadata_in & 0x1000;
+    }
+
+
+    last_signature = trackers_l2c[cpu][index].signature; /////////////////// changed by PP
+    DPT_l2c[cpu][last_signature].conf = update_conf_l2(stride, DPT_l2c[cpu][last_signature].delta, DPT_l2c[cpu][last_signature].conf); /////////////////// changed by PP
+
+    if (DPT_l2c[cpu][last_signature].conf <= -1)
+        DPT_l2c[cpu][last_signature].delta = stride;
+
+    signature = update_sig_l2(last_signature, stride); /////////////////// changed by PP
+    trackers_l2c[cpu][index].signature = signature; /////////////////// changed by PP
+
+
+    SIG_DP(
+        cout << ip << ", " << cache_hit << ", " << cl_addr << ", ";
+        cout << ", " << stride << "; ";);
+
+
+    // we are prefetching for GS, CS and NL and also CPLX -----------------PP
+    if (trackers_l2c[cpu][index].stride != 0)
+    {
+        if (trackers_l2c[cpu][index].pref_type == 0x100 || trackers_l2c[cpu][index].pref_type == 0x200)
+        { // GS or CS class
+            if (trackers_l2c[cpu][index].pref_type == 0x100)
+                if (NUM_CPUS == 1)
+                    trackers_l2c[cpu][index].prefetch_degree = 4;
+
+            for (int i = 0; i < trackers_l2c[cpu][index].prefetch_degree; i++)
+            {
+                uint64_t pf_address = (cl_addr + (trackers_l2c[cpu][index].stride * (i + 1))) << LOG2_BLOCK_SIZE;
+
+                // Check if prefetch address is in same 4 KB page
+                if ((pf_address >> LOG2_PAGE_SIZE) != (addr >> LOG2_PAGE_SIZE))
+                    break;
+
+                prefetch_line(ip, addr, pf_address, FILL_L2, metadata_in);
+                SIG_DP(cout << trackers_l2c[cpu][index].stride << ", ");
+            }
+        }
+        else if (trackers_l2c[cpu][index].pref_type == 0x400 && spec_nl_l2[cpu] > 0)
+        {
+            ////////////// ADDED for loop ------------------------- PP
+            for (int i = 0; i < trackers_l2c[cpu][index].prefetch_degree; i++)
+            {
+                uint64_t pf_address = (cl_addr + (trackers_l2c[cpu][index].stride * (i + 1))) << LOG2_BLOCK_SIZE;
+
+                // Check if prefetch address is in same 4 KB page
+                if ((pf_address >> LOG2_PAGE_SIZE) != (addr >> LOG2_PAGE_SIZE))
+                    break;
+
+                prefetch_line(ip, addr, pf_address, FILL_L2, metadata_in);
+                SIG_DP(cout << trackers_l2c[cpu][index].stride << ", ");
+            }
+        }
+        else if(trackers_l2c[cpu][index].pref_type == 0x300 && DPT_l2c[cpu][signature].conf > 0)
+        {   
+            /// ADDED CPLX CLASS ----PP
+            int pref_offset = 0, i = 0; // CPLX IP
+            if(trackers_l2c[cpu][index].prefetch_degree>1)trackers_l2c[cpu][index].prefetch_degree-=2;  ///////////////////////Decrementing prefetch_degree ----- PP
+            for (i = 0; i < trackers_l2c[cpu][index].prefetch_degree; i++) 
+            {
+                pref_offset += DPT_l2c[cpu][signature].delta; 
+                uint64_t pf_address = ((cl_addr + pref_offset) << LOG2_BLOCK_SIZE);
+
+                // Check if prefetch address is in same 4 KB page
+                if (((pf_address >> LOG2_PAGE_SIZE) != (addr >> LOG2_PAGE_SIZE)) ||(DPT_l2c[cpu][signature].delta == 0))
+                {
+                    // if new entry in DPT or delta is zero, break
+                    break;
+                }
+
+                // we are not prefetching at L2 for CPLX type, so encode delta as 0
+                if (DPT_l2c[cpu][signature].conf > 0)
+                { // prefetch only when conf>0 for CPLX
+                    prefetch_line(ip, addr, pf_address, FILL_L2, metadata_in);
+                    SIG_DP(cout << pref_offset << ", ");
+                }
+                signature = update_sig_l2(signature, DPT_l2c[cpu][signature].delta);
+            }
+        }
+    }
+
+    SIG_DP(cout << endl);
+    return metadata_in;
+}
+
+uint32_t CACHE::l2c_prefetcher_cache_fill(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+    return metadata_in;
+}
+
+void CACHE::l2c_prefetcher_final_stats()
+{
+}
