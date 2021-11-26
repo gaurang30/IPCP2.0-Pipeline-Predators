@@ -4,7 +4,12 @@
 
 - Download ChampSim repository from :\
 ``` https://github.com/ChampSim/ChampSim ```
-- Download `600.perlbench_s-570B.champsimtrace.xz`, `605.mcf_s-994B.champsimtrace.xz`, `620.omnetpp_s-141B.champsimtrace.xz`, `620.omnetpp_s-874B.champsimtrace.xz`, `657.xz_s-2302B.champsimtrace.xz` traces from ``` https://hpca23.cse.tamu.edu/champsim-traces/speccpu/index.html ``` 
+- Download the following traces from this [link](https://hpca23.cse.tamu.edu/champsim-traces/speccpu/index.html)
+* `600.perlbench_s-570B.champsimtrace.xz`
+* `605.mcf_s-994B.champsimtrace.xz`
+* `620.omnetpp_s-141B.champsimtrace.xz`
+* `620.omnetpp_s-874B.champsimtrace.xz`
+* `657.xz_s-2302B.champsimtrace.xz` 
 - Place these files into ChampSim/dpc3_traces folder 
 - Download the source code of IPCP2.0-Pipeline-Predators
 - Place ipcp.l1d_pref, ipcp.l2c_pref, ipcp.llc_pref files inside ChampSim/prefetcher folder
