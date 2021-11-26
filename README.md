@@ -16,3 +16,11 @@
 - Run the bash_code file using: \
 ``` ./bash_code.sh {folder_name} ``` \
 This will create a folder of desired name which will store the simulation results of given 5 traces along with their ipc values in results.txt
+
+| Name                          	| Contribution 	|
+|-------------------------------	|--------------	|
+| Aadish Jain (190050001)       	|              	|
+| Aman Yadav (190050013)        	|              	|
+| Amit Rajaraman (190050015)    	|              	|
+| Amit Kumar Mallik (19d070007) 	|              	|
+| Gaurang Dev (19d070024)       	|              	|
