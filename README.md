@@ -1,6 +1,6 @@
 # IPCP2.0-Pipeline-Predators
 
-## STEPS TO RUN THE CODE
+### STEPS TO RUN THE CODE
 
 - Download [ChampSim repository](https://github.com/ChampSim/ChampSim)
 - Download the following traces from this [link](https://hpca23.cse.tamu.edu/champsim-traces/speccpu/index.html)
@@ -17,10 +17,14 @@
 ``` ./bash_code.sh {folder_name} ``` \
 This will create a folder of desired name which will store the simulation results of given 5 traces along with their ipc values in `results.txt`
 
+### Contributions
+
 | Name                          	| Contribution 	|
 |-------------------------------	|--------------	|
-| Aadish Jain (190050001)       	|              	|
-| Aman Yadav (190050013)        	|              	|
-| Amit Rajaraman (190050015)    	|              	|
-| Amit Kumar Mallik (19d070007) 	|              	|
-| Gaurang Dev (19d070024)       	|              	|
+| Aadish Jain (190050001)       	|        Code changes, Presentation      |
+| Aman Yadav (190050013)        	|        Code changes, Presentation, Video    |
+| Amit Rajaraman (190050015)    	|        Code changes, Presentation, Video     	|
+| Amit Kumar Mallik (19d070007) 	|        Code changes, Ablation Study, Presentation      	|
+| Gaurang Dev (19d070024)       	|        Code changes, Ablation Study, Presentation      	|
+
+
